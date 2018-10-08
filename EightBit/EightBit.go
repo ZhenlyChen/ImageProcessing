@@ -36,8 +36,10 @@ func (c SortByB) Less(i, j int) bool {
 	return c.ColorSlice[i].B < c.ColorSlice[j].B
 }
 
+// colorTable LUT
 var colorTable ColorSlice
 
+// DivRGB 划分颜色，生成LUT
 func DivRGB(data ColorSlice, deep int) {
 	colorType := deep % 3
 	half := len(data) / 2
@@ -48,7 +50,7 @@ func DivRGB(data ColorSlice, deep int) {
 	} else { // B
 		sort.Sort(SortByB{data})
 	}
-	if deep >= 7 {
+	if deep >= 7 { // 已经划分了7次，再划分一次就可以生成256个区域
 		var sumR, sumG, sumB int
 		for _, c := range data[:half] {
 			sumR += int(c.R)
@@ -71,7 +73,7 @@ func DivRGB(data ColorSlice, deep int) {
 			G: uint8(sumG / half),
 			B: uint8(sumB / half),
 		})
-	} else {
+	} else { // 继续划分
 		DivRGB(data[:half], deep+1)
 		DivRGB(data[half:], deep+1)
 	}
@@ -104,16 +106,15 @@ func To8Bit(src gocv.Mat) (res gocv.Mat) {
 				B: src.GetUCharAt(i, j*3+2),
 			}
 			newColor := getColor(oldColor)
-			// fmt.Println(oldColor, newColor)
 			res.SetUCharAt(i, j*3, newColor.R)
 			res.SetUCharAt(i, j*3+1, newColor.G)
 			res.SetUCharAt(i, j*3+2, newColor.B)
 		}
-		//panic("")
 	}
 	return
 }
 
+// 寻找欧氏距离最短的颜色
 func getColor(src RGBColor) RGBColor {
 	index := 0
 	dis := getDis(src, colorTable[0])

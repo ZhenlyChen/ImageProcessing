@@ -1,7 +1,6 @@
 package main
 
 import (
-	"fmt"
 	"github.com/ZhenlyChen/ImageProcessing/EightBit"
 	"github.com/ZhenlyChen/ImageProcessing/IrisImage"
 	"github.com/andybons/gogif"
@@ -31,6 +30,7 @@ func process8Bit() {
 }
 
 func processIris() {
+	// 读取源图像
 	var err error
 	var file1, file2 *os.File
 	var img1, img2 image.Image
@@ -45,9 +45,9 @@ func processIris() {
 	img2, err = jpeg.Decode(file2)
 	check(err)
 
+	// 生成不同半径的图片
 	var names []string
 	var subimages []image.Image
-
 	for i := 0.01; i <= 1; i += 0.01 {
 		resImg, err := IrisImage.GetIrisImage(img1, img2, i)
 		subimages = append(subimages, resImg)
@@ -60,7 +60,7 @@ func processIris() {
 		check(err)
 	}
 
-	// gif
+	// 生成gif
 	distGif, err := os.Create("./dist/iris.gif")
 	check(err)
 	outGif := &gif.GIF{}
@@ -77,14 +77,15 @@ func processIris() {
 	}
 	gif.EncodeAll(distGif, outGif)
 
-	// video
+	// 生成video
 	video, err := gocv.VideoWriterFile("./dist/iris.avi", "MJPG", 60, img1.Bounds().Dy(), img1.Bounds().Dx(), true)
 	check(err)
 	for _, n := range names {
 		img := gocv.IMRead(n, gocv.IMReadColor)
 		video.Write(img)
 	}
-	window := gocv.NewWindow("Video")
+	video.Close()
+	/*window := gocv.NewWindow("Video")
 	v, err := gocv.VideoCaptureFile("./dist/iris.avi")
 	check(err)
 	frame := gocv.NewMat()
@@ -98,8 +99,8 @@ func processIris() {
 			break
 		}
 	}
-	v.Close()
-	fmt.Println("success!")
+	v.Close()*/
+	// fmt.Println("success!")
 }
 
 func check(err error) {
