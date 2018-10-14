@@ -22,25 +22,25 @@ func (c ColorSlice) Swap(i, j int) {
 	c[i], c[j] = c[j], c[i]
 }
 
-type SortByR struct{ ColorSlice }
-type SortByG struct{ ColorSlice }
-type SortByB struct{ ColorSlice }
+type sortByR struct{ ColorSlice }
+type sortByG struct{ ColorSlice }
+type sortByB struct{ ColorSlice }
 
-func (c SortByR) Less(i, j int) bool {
+func (c sortByR) Less(i, j int) bool {
 	return c.ColorSlice[i].R < c.ColorSlice[j].R
 }
-func (c SortByG) Less(i, j int) bool {
+func (c sortByG) Less(i, j int) bool {
 	return c.ColorSlice[i].G < c.ColorSlice[j].G
 }
-func (c SortByB) Less(i, j int) bool {
+func (c sortByB) Less(i, j int) bool {
 	return c.ColorSlice[i].B < c.ColorSlice[j].B
 }
 
 // colorTable LUT
 var colorTable ColorSlice
 
-// DivRGB 划分颜色，生成LUT
-func DivRGB(data ColorSlice, deep int) {
+// divRGB 划分颜色，生成LUT
+func divRGB(data ColorSlice, deep int) {
 	length := len(data)
 	if deep >= 8 { // 已经划分了7次，再划分一次就可以生成256个区域
 		var sumR, sumG, sumB int
@@ -58,18 +58,18 @@ func DivRGB(data ColorSlice, deep int) {
 	}
 	switch deep % 3 {
 	case 0:
-		sort.Sort(SortByR{data})
+		sort.Sort(sortByR{data})
 	case 1:
-		sort.Sort(SortByG{data})
+		sort.Sort(sortByG{data})
 	case 2:
-		sort.Sort(SortByB{data})
+		sort.Sort(sortByB{data})
 	}
 	// 继续划分
-	DivRGB(data[:length/2], deep+1)
-	DivRGB(data[length/2:], deep+1)
+	divRGB(data[:length/2], deep+1)
+	divRGB(data[length/2:], deep+1)
 }
 
-func ToRGBColor(src gocv.Mat) (res ColorSlice) {
+func toRGBColor(src gocv.Mat) (res ColorSlice) {
 	size := src.Size()
 	for i := 0; i < size[0]; i++ {
 		for j := 0; j < size[1]; j++ {
@@ -83,9 +83,10 @@ func ToRGBColor(src gocv.Mat) (res ColorSlice) {
 	return
 }
 
+// To8Bit 转成 8 位照片
 func To8Bit(src gocv.Mat) (res gocv.Mat) {
 	res = src.Clone()
-	DivRGB(ToRGBColor(src), 0)
+	divRGB(toRGBColor(src), 0)
 	size := src.Size()
 	for i := 0; i < size[0]; i++ {
 		for j := 0; j < size[1]; j++ {
