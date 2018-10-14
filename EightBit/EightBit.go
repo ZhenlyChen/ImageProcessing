@@ -1,9 +1,9 @@
 package EightBit
 
 import (
-	"fmt"
-	"gocv.io/x/gocv"
 	"sort"
+
+	"gocv.io/x/gocv"
 )
 
 type RGBColor struct {
@@ -41,42 +41,32 @@ var colorTable ColorSlice
 
 // DivRGB 划分颜色，生成LUT
 func DivRGB(data ColorSlice, deep int) {
-	colorType := deep % 3
-	half := len(data) / 2
-	if colorType == 0 { // R
+	length := len(data)
+	if deep >= 8 { // 已经划分了7次，再划分一次就可以生成256个区域
+		var sumR, sumG, sumB int
+		for _, c := range data[:] {
+			sumR += int(c.R)
+			sumG += int(c.G)
+			sumB += int(c.B)
+		}
+		colorTable = append(colorTable, RGBColor{
+			R: uint8(sumR / length),
+			G: uint8(sumG / length),
+			B: uint8(sumB / length),
+		})
+		return
+	}
+	switch deep % 3 {
+	case 0:
 		sort.Sort(SortByR{data})
-	} else if colorType == 1 { // G
+	case 1:
 		sort.Sort(SortByG{data})
-	} else { // B
+	case 2:
 		sort.Sort(SortByB{data})
 	}
-	if deep >= 7 { // 已经划分了7次，再划分一次就可以生成256个区域
-		var sumR, sumG, sumB int
-		for _, c := range data[:half] {
-			sumR += int(c.R)
-			sumG += int(c.G)
-			sumB += int(c.B)
-		}
-		colorTable = append(colorTable, RGBColor{
-			R: uint8(sumR / half),
-			G: uint8(sumG / half),
-			B: uint8(sumB / half),
-		})
-		sumR, sumG, sumB = 0, 0, 0
-		for _, c := range data[half:] {
-			sumR += int(c.R)
-			sumG += int(c.G)
-			sumB += int(c.B)
-		}
-		colorTable = append(colorTable, RGBColor{
-			R: uint8(sumR / half),
-			G: uint8(sumG / half),
-			B: uint8(sumB / half),
-		})
-	} else { // 继续划分
-		DivRGB(data[:half], deep+1)
-		DivRGB(data[half:], deep+1)
-	}
+	// 继续划分
+	DivRGB(data[:length/2], deep+1)
+	DivRGB(data[length/2:], deep+1)
 }
 
 func ToRGBColor(src gocv.Mat) (res ColorSlice) {
@@ -96,7 +86,6 @@ func ToRGBColor(src gocv.Mat) (res ColorSlice) {
 func To8Bit(src gocv.Mat) (res gocv.Mat) {
 	res = src.Clone()
 	DivRGB(ToRGBColor(src), 0)
-	fmt.Println(colorTable)
 	size := src.Size()
 	for i := 0; i < size[0]; i++ {
 		for j := 0; j < size[1]; j++ {
