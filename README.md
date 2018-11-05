@@ -9,3 +9,7 @@
 ## EightBit
 
 转换为8位图像
+
+## MakeJPEG
+
+JPEG编码器

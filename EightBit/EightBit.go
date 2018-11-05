@@ -1,6 +1,8 @@
 package EightBit
 
 import (
+	"image/jpeg"
+	"os"
 	"sort"
 
 	"gocv.io/x/gocv"
@@ -124,4 +126,23 @@ func getDis(a, c RGBColor) int {
 	g = int(a.G) - int(c.G)
 	b = int(a.B) - int(c.B)
 	return r*r + g*g + b*b
+}
+
+
+func Process8Bit() {
+	img := gocv.IMRead("./img/redapple.jpg", gocv.IMReadColor)
+	resImg := To8Bit(img)
+	distFile, err := os.Create("./dist/goodapple.jpg")
+	check(err)
+	dist, err := resImg.ToImage()
+	check(err)
+	// png.Encode(distFile, dist)
+	err = jpeg.Encode(distFile, dist, &jpeg.Options{Quality: 100})
+	check(err)
+}
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
 }
