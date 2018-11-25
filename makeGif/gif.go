@@ -1,6 +1,7 @@
 package makeGif
 
 import (
+	"fmt"
 	"github.com/andybons/gogif"
 	"image"
 	"image/gif"
@@ -24,7 +25,10 @@ func Make(src, dst string) {
 	// Add new frame to animated GIF
 	outGif.Image = append(outGif.Image, palettedImage)
 	outGif.Delay = append(outGif.Delay, 0)
-	gif.EncodeAll(distGif, outGif)
+	err = gif.EncodeAll(distGif, outGif)
+	if err != nil {
+		fmt.Println(err)
+	}
 }
 
 

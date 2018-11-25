@@ -4,9 +4,23 @@ import (
 	"fmt"
 	"image"
 	"image/jpeg"
+	"io/ioutil"
 	"math"
 	"os"
 )
+
+func check(err error) {
+	if err != nil {
+		panic(err)
+	}
+}
+
+// AC系数
+type factor struct {
+	Length int // 0的长度
+	Data   int // 数据
+}
+
 
 func Make(src, dst string) {
 	file1, err := os.OpenFile(src, os.O_RDONLY, 0)
@@ -42,66 +56,17 @@ var matrixIQ = [8][8]int{
 
 func encode(src image.Image, dst string) error {
 	imgColor := convertToYIQ(src)
-	fmt.Println(imgColor[0][0])
-	fmt.Println(imgColor[0][1])
-	fmt.Println(imgColor[1][0])
-	fmt.Println(imgColor[1][1])
 	fmt.Println(len(imgColor), len(imgColor[0]))
 
-	test := [8][8]int{
-		{200, 202, 189, 188, 189, 175, 175, 175},
-		{200, 203, 198, 188, 189, 182, 178, 175},
-		{203, 200, 200, 195, 200, 187, 185, 175},
-		{200, 200, 200, 200, 197, 187, 187, 187},
-		{200, 205, 200, 200, 195, 188, 187, 175},
-		{200, 200, 200, 200, 200, 190, 187, 175},
-		{205, 200, 199, 200, 191, 187, 187, 175},
-		{210, 200, 200, 200, 188, 185, 187, 186},
-	}
-
-	testColor := make([][][3]int, 8)
-	for k := 0; k < 8; k++ {
-		row := make([][3]int, 8)
-		for j := 0; j < 8; j++ {
-			row[j][0] = test[k][j]
-		}
-		testColor[k] = row
-	}
-
-	// AC[第i块数据][0:Y, 1:I, 2:Q][第i对数字][0: 长度,1: 值]
-	var AC [][][][2]int
+	// AC[第i块数据][0:Y, 1:I, 2:Q][第i对AC系数]
+	var AC [][][]factor
 	// DC[第i块数据][0:Y, 1:I, 2:Q]
 	var DC [][3]int
 
-	for x := 0; x < len(testColor); x += 8 {
-		for y := 0; y < len(testColor[x]); y += 8 {
-			for k := 0; k < 8; k++ {
-				for j := 0; j < 8; j++ {
-					fmt.Print(testColor[k][j][0])
-					fmt.Print("\t\t")
-				}
-				fmt.Print("\n")
-			}
-			fmt.Print("\n")
-			fmt.Print("\n")
-			dtc := convertDTC(testColor, x, y)
-			for k := 0; k < 8; k++ {
-				for j := 0; j < 8; j++ {
-					fmt.Print(dtc[k][j][0])
-					fmt.Print("\t\t")
-				}
-				fmt.Print("\n")
-			}
-			fmt.Print("\n")
-			fmt.Print("\n")
+	for x := 0; x < len(imgColor); x += 8 {
+		for y := 0; y < len(imgColor[x]); y += 8 {
+			dtc := convertDTC(imgColor, x, y)
 			dtcAfterQ := quantitative(dtc, x, y)
-			for k := 0; k < 8; k++ {
-				for j := 0; j < 8; j++ {
-					fmt.Print(dtcAfterQ[k][j][0])
-					fmt.Print("\t\t")
-				}
-				fmt.Print("\n")
-			}
 			ac, dc := traverseZigZag(dtcAfterQ, x, y)
 			AC = append(AC, ac)
 			DC = append(DC, dc)
@@ -109,11 +74,80 @@ func encode(src image.Image, dst string) error {
 	}
 	// allDC[0:Y, 1:I, 2:Q][第i块数据]
 	allDC := dcDPCM(DC)
-	fmt.Print(AC)
-	fmt.Print(allDC)
-
-	return nil
+	DCBinary := huffmanDC(allDC)
+	ACBinary := huffmanAC(AC)
+	var finalData []byte
+	finalData = append(finalData, DCBinary...)
+	finalData = append(finalData, ACBinary...)
+	return ioutil.WriteFile(dst, finalData, 0644)
 }
+
+func huffmanDC(dc [3][]int) []byte {
+	table := make(map[int]int)
+	var data []factor
+	for colorChannel := range dc {
+		for _, d := range dc[colorChannel] {
+			size := getLength(d)
+			table[size]++
+			data = append(data, factor{size, d})
+		}
+	}
+	dcTable := huffmanEncode(table)
+	bitData := bitArray{}
+	for i := range data {
+		dc := data[i]
+		sizeStr := dcTable[dc.Length]
+		sizeByte := []byte(sizeStr)
+		for _, b := range sizeByte {
+			bitData.addBit(b - '0')
+		}
+		bitData.addData(dc.Data)
+	}
+	return bitData.Data
+}
+
+func huffmanAC(ac [][][]factor) []byte {
+	table := make(map[int]int)
+	var data []factor
+	for i := range ac {
+		for colorChannel := range ac[i] {
+			for _, d := range ac[i][colorChannel] {
+				size := getLength(d.Data)
+				symbol1 := d.Length * 16 + size
+				table[symbol1]++
+				data = append(data, factor{symbol1, d.Data})
+			}
+		}
+	}
+	dcTable := huffmanEncode(table)
+	bitData := bitArray{}
+	for i := range data {
+		dc := data[i]
+		sizeStr := dcTable[dc.Length]
+		sizeByte := []byte(sizeStr)
+		for _, b := range sizeByte {
+			bitData.addBit(b - '0')
+		}
+		bitData.addData(dc.Data)
+	}
+	return bitData.Data
+}
+
+
+
+func getLength(num int) int {
+	num %= 2048
+	if num < 0 {
+		num = -num
+	}
+	l := 0
+	for num > 0 {
+		num >>= 1
+		l++
+	}
+	return l
+}
+
 
 // DPCM编码
 func dcDPCM(mat [][3]int) [3][]int {
@@ -126,7 +160,7 @@ func dcDPCM(mat [][3]int) [3][]int {
 				row = append(row, last)
 			} else {
 				last = mat[i][k]
-				row = append(row, mat[i][k] - last)
+				row = append(row, mat[i][k]-last)
 			}
 		}
 		dst[k] = row
@@ -213,14 +247,9 @@ func convertToYIQ(src image.Image) [][][3]int {
 	return mat
 }
 
-func check(err error) {
-	if err != nil {
-		panic(err)
-	}
-}
-
-func traverseZigZag(src [][][3]int, x, y int) ([][][2]int, [3]int) {
-	res := make([][][2]int, 3)
+// traverseZigZag 游长编码 ac dc
+func traverseZigZag(src [][][3]int, x, y int) ([][]factor, [3]int) {
+	res := make([][]factor, 3)
 	var dc [3]int
 	for k := 0; k < 3; k ++ {
 		var zig []int
@@ -229,7 +258,7 @@ func traverseZigZag(src [][][3]int, x, y int) ([][][2]int, [3]int) {
 		d := [2][2]int{{1, -1}, {-1, 1}}
 		corner := [2][4]int{{1, 0, 0, 1}, {0, 1, 1, 0}}
 		for i < 8 && j < 8 {
-			zig = append(zig, src[x + i][y+j][k])
+			zig = append(zig, src[x+i][y+j][k])
 			if i == 0 || j == 0 || i == 7 || j == 7 {
 				if !turned {
 					k := 2 * (up*(j/7) | (1-up)*(i/7))
@@ -246,17 +275,21 @@ func traverseZigZag(src [][][3]int, x, y int) ([][][2]int, [3]int) {
 			j += d[up][1]
 		}
 
-		var dst [][2]int
+		var dst []factor
 		count := 0
-		for i := 1; i < 64; i++{
+		for i := 1; i < 64; i++ {
 			if zig[i] != 0 {
-				dst = append(dst, [2]int{count, zig[i]})
+				for count > 15 {
+					dst = append(dst, factor{15, zig[i]})
+					count -= 15
+				}
+				dst = append(dst, factor{count, zig[i]})
 				count = 0
 			} else {
 				count++
 			}
 		}
-		dst = append(dst, [2]int{0, 0})
+		dst = append(dst, factor{0, 0})
 		res[k] = dst
 		dc[k] = zig[0]
 	}
