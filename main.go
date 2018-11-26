@@ -12,6 +12,6 @@ func main() {
 	// makeGif.Make( "./img/photo.jpg", "./dist/photo.gif")
 	// makeGif.Make( "./img/cartoon.jpg", "./dist/cartoon.gif")
 	// JPEG编码
-	makeJPEG.Make("./img/photo.jpg", "./dist/photo.jpg")
 	makeJPEG.Make("./img/cartoon.jpg", "./dist/cartoon.jpg")
+	makeJPEG.Make("./img/photo.jpg", "./dist/photo.jpg")
 }
