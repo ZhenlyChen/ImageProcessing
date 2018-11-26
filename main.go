@@ -1,6 +1,7 @@
 package main
 
 import (
+	"github.com/ZhenlyChen/ImageProcessing/makeGif"
 	"github.com/ZhenlyChen/ImageProcessing/makeJPEG"
 )
 
@@ -9,8 +10,8 @@ func main() {
 	// EightBit.Process8Bit()
 	// 图像切换效果
 	// IrisImage.ProcessIris()
-	// makeGif.Make( "./img/photo.jpg", "./dist/photo.gif")
-	// makeGif.Make( "./img/cartoon.jpg", "./dist/cartoon.gif")
+	makeGif.Make( "./img/photo.jpg", "./dist/photo.gif")
+	makeGif.Make( "./img/cartoon.jpg", "./dist/cartoon.gif")
 	// JPEG编码
 	makeJPEG.Make("./img/cartoon.jpg", "./dist/cartoon.jpg")
 	makeJPEG.Make("./img/photo.jpg", "./dist/photo.jpg")

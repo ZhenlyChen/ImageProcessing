@@ -2,15 +2,20 @@ package makeJPEG
 
 import "image"
 
+var rgb[][][3]int
+
 // RGB to YIQ and reSampling
-func convertToYIQ(src image.Image) [][][3]int {
+func convertToYUV(src image.Image) [][][3]int {
 	bounds := src.Bounds().Max
 	mat := make([][][3]int, bounds.Y+(8-bounds.Y%8))
+	rgb = make([][][3]int, bounds.Y+(8-bounds.Y%8))
 	for x := 0; x < bounds.Y; x++ {
 		row := make([][3]int, bounds.X+(8-bounds.X%8))
+		rowRGB := make([][3]int, bounds.X+(8-bounds.X%8))
 		for y := 0; y < bounds.X; y++ {
 			r, g, b, _ := src.At(y, x).RGBA()
 			R, G, B := float32(r/257), float32(g/257), float32(b/257)
+			rowRGB[y][0], rowRGB[y][1],rowRGB[y][2] = int(R), int(G), int(B)
 			// YUV
 			row[y][0] = int(uint8(0.299*R + 0.587*G + 0.114*B))
 			// 4:2:0 二次采样
@@ -18,8 +23,8 @@ func convertToYIQ(src image.Image) [][][3]int {
 				row[y][1] = int(uint8(-0.1687*R - 0.3313*G + 0.5*B + 128))
 				row[y][2] = int(uint8(0.5*R - 0.4187*G - 0.0813*B + 128))
 				if x%2 == 1 {
-					row[y][1] = (int(mat[x-1][y][1]) + int(row[y][1])) / 2
-					row[y][2] = (int(mat[x-1][y][2]) + int(row[y][2])) / 2
+					row[y][1] = int(mat[x-1][y][1])
+					row[y][2] = int(row[y][2])
 					row[y+1][1] = row[y][1]
 					row[y+1][2] = row[y][2]
 					mat[x-1][y][1] = row[y][1]
@@ -29,6 +34,7 @@ func convertToYIQ(src image.Image) [][][3]int {
 				}
 			}
 		}
+		rgb[x] = rowRGB
 		mat[x] = row
 	}
 	for i := bounds.Y; i < len(mat); i++ {

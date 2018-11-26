@@ -6,6 +6,7 @@ import (
 	"image/color"
 	"image/jpeg"
 	"io/ioutil"
+	"math"
 	"os"
 )
 
@@ -56,38 +57,49 @@ var matrixIQ = [8][8]int{
 func encode(src image.Image, dst string) error {
 	fmt.Println("Encode JPEG for ", dst)
 	fmt.Println("RGB to YUV")
-	imgColor := convertToYIQ(src)
+	// RGB to YUV 颜色模型转换
+	imgColor := convertToYUV(src)
 	fmt.Println("Size: ", len(imgColor), len(imgColor[0]))
 	// AC[第i块数据][0:Y, 1:I, 2:Q][第i对AC系数]
 	var AC [][][]factor
 	// DC[第i块数据][0:Y, 1:I, 2:Q]
 	var DC [][3]int
-	fmt.Println("DTC...")
+	fmt.Println("DCT...")
 	fmt.Println("Quantitative...")
 	fmt.Println("ZigZag...")
-	fmt.Println("DPCM...")
+	// 每次对8*8大小的块操作
 	for x := 0; x < len(imgColor); x += 8 {
 		for y := 0; y < len(imgColor[x]); y += 8 {
-			convertDTC(imgColor, x, y)
+			// 2D DCT
+			convertDCT(imgColor, x, y)
+			// 量化
 			quantitative(imgColor, x, y)
+			// Z扫描生成AC系数的游长编码和DC系数
 			ac, dc := traverseZigZag(imgColor, x, y)
 			AC = append(AC, ac)
 			DC = append(DC, dc)
 		}
 	}
 	// allDC[0:Y, 1:I, 2:Q][第i块数据]
+	fmt.Println("DPCM...")
+	// DC系数的DPCM编码
 	allDC := dcDPCM(DC)
 	fmt.Println("Huffman for DC...")
+	// DC系数的Huffman编码
 	DCBinary := huffmanDC(allDC)
 	fmt.Println("Huffman for AC...")
+	// AC系数的Huffman编码
 	ACBinary := huffmanAC(AC)
 	fmt.Println("Output DC...")
+	// 输出过程数据DC
 	err := ioutil.WriteFile(dst+".dc", []byte(fmt.Sprint(allDC)), 0644)
 	check(err)
 	fmt.Println("Output AC...")
+	// 输出过程数据AC
 	err = ioutil.WriteFile(dst+".ac", []byte(fmt.Sprint(AC)), 0644)
 	check(err)
 	fmt.Println("Output Binary...")
+	// 输出二进制数据
 	var finalData []byte
 	finalData = append(finalData, DCBinary...)
 	finalData = append(finalData, ACBinary...)
@@ -100,16 +112,31 @@ func encode(src image.Image, dst string) error {
 	fmt.Println("Inverse DTC...")
 	for x := 0; x < len(imgColor); x += 8 {
 		for y := 0; y < len(imgColor[x]); y += 8 {
+			// 反量化
 			Iquantitative(imgColor, x, y)
-			convertIDTC(imgColor, x, y)
+			// 2D DCT 逆变换
+			convertIDCT(imgColor, x, y)
 		}
 	}
 	fmt.Println("YUV to RGB...")
+	// 转换成RGB
 	convertRGB(imgColor)
 
-
-	fmt.Println("Write Image...")
 	bounds := src.Bounds().Max
+	// 均方差计算
+	sum := 0.0
+	count := 0
+	for x := 0; x < bounds.Y; x++ {
+		for y := 0; y < bounds.X; y++ {
+			for k := 0; k < 3; k ++ {
+				sum += math.Pow(float64(imgColor[x][y][k] - rgb[x][y][k]), 2.0)
+				count++
+			}
+		}
+	}
+	fmt.Println("MSE: ", float64(sum) / float64(count))
+	// 写入文件
+	fmt.Println("Write Image...")
 	dstImage := image.NewRGBA(src.Bounds())
 	for x := 0; x < bounds.Y; x++ {
 		for y := 0; y < bounds.X; y++ {
@@ -122,7 +149,7 @@ func encode(src image.Image, dst string) error {
 	distFile, err := os.Create(dst)
 	check(err)
 	fmt.Println("Write File...")
-	err = jpeg.Encode(distFile, dstImage, &jpeg.Options{Quality: 75})
+	err = jpeg.Encode(distFile, dstImage, &jpeg.Options{Quality: 100})
 	check(err)
 
 	fmt.Println("Finish!")

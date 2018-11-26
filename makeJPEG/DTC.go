@@ -5,7 +5,7 @@ import (
 )
 
 // DTC离散余弦变换
-func convertDTC(src [][][3]int, x, y int) [][][3]int {
+func convertDCT(src [][][3]int, x, y int) [][][3]int {
 	cSrc := make([][][3]int, 8)
 	for k := 0; k < 8; k++ {
 		cSrc[k] = make([][3]int, 8)
@@ -40,7 +40,7 @@ func convertDTC(src [][][3]int, x, y int) [][][3]int {
 
 
 // IDTC逆离散余弦变换
-func convertIDTC(src [][][3]int, x, y int) [][][3]int {
+func convertIDCT(src [][][3]int, x, y int) [][][3]int {
 	cSrc := make([][][3]int, 8)
 	for k := 0; k < 8; k++ {
 		cSrc[k] = make([][3]int, 8)
